@@ -1,0 +1,374 @@
+---
+title: "Cross-Validation and Final Model Testing"
+author: "Sophia Torres and Tom Evert"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Cross-validation within 2015-2017 training data
+
+```{r}
+##Note that this code comes after model building, tested across 15 MLB pitchers of various ERAs randomly selected. 
+
+#Data Source
+#http://inalitic.com/datasets/mlb%20pitch%20data.html
+pitches <- read.csv("pitches.csv")
+ atbats = read.csv("atbats.csv")
+
+
+temp1 = merge( pitches, atbats, by="ab_id", all=TRUE )
+
+
+temp1 = read.csv("temp1.csv") 
+
+temp1 = na.omit(temp1) #omit NA values
+```
+
+
+
+```{r}
+##50 Randomly selected pitchers for cross validation. Requirements were that they played in all 4 recorded seasons in our data (2015-2018)
+cv_pitcher = subset(temp1, pitcher_id %in% c(112526,279571,282332,407822,407845,424144,425492,425794,425844,429719,429722,430741,430935,433586,433587,433589,434378,434538,434628,434671,435043,435221,444468,445197,445213,445276,445926,446099,446372,446399,446899,448179,448281,448306,448609,448614,448802,448855,450203,450212,450304,450729,451584,451596,451661,452657,453172,453178,453192,453214)) 
+
+
+cv_pitcher = subset(cv_pitcher, ab_id < 2018000000)  ## 2015-2017 data
+
+## manipulate type into binary variable
+cv_pitcher$type = ifelse(cv_pitcher$type == "X" & cv_pitcher$zone < 10, 1, cv_pitcher$type) 
+cv_pitcher$type = ifelse(cv_pitcher$type == "X" & cv_pitcher$zone > 10, 0, cv_pitcher$type)
+cv_pitcher$type = ifelse(cv_pitcher$type == "S" , 1, 0)
+```
+
+```{r}
+##threshold evaluation accuracy testing 
+interceptonly = glm(type ~ 1, data =cv_pitcher)
+summary(interceptonly)
+p.hat = exp(interceptonly$fitted)/(1+exp(interceptonly$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy)
+index = which.max(accuracy)
+thr[index] 
+
+```
+
+
+```{r}
+fit1 = glm(type ~ b_score + b_count + s_count + pitch_num, data = cv_pitcher)
+summary(fit1)
+
+p.hat = exp(fit1$fitted)/(1+exp(fit1$fitted))
+y.obs = cv_pitcher$type
+# length(p.hat)
+# length(y.obs)
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy)
+index = which.max(accuracy)
+thr[index] 
+```
+
+
+```{r}
+fit2 = glm(type ~ on_1b + on_2b + on_3b + outs, data = cv_pitcher) 
+summary(fit2)
+
+p.hat = exp(fit2$fitted)/(1+exp(fit2$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy)
+index = which.max(accuracy)
+thr[index]
+```
+
+
+
+```{r}
+fit3 = glm(type ~ stand, data = cv_pitcher)
+summary(fit3)
+
+p.hat = exp(fit3$fitted)/(1+exp(fit3$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy) #51.50
+index = which.max(accuracy)
+thr[index] #0.01
+```
+
+
+```{r}
+fit4 = glm(type ~ stand + on_1b + on_2b + on_3b + outs +  b_score + b_count + s_count + pitch_num, data = cv_pitcher)
+summary(fit4)
+
+p.hat = exp(fit4$fitted)/(1+exp(fit4$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy) #55.29%
+index = which.max(accuracy)
+thr[index]  #.52
+```
+
+
+```{r}
+fit5 = glm(type ~ s_count + b_count + stand, data = cv_pitcher)
+summary(fit5)
+
+p.hat = exp(fit5$fitted)/(1+exp(fit5$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy) 
+index = which.max(accuracy)
+thr[index]
+```
+
+
+
+
+```{r}
+fit6 = glm(type ~ on_3b + outs + pitch_num, data = cv_pitcher)
+summary(fit6)
+
+p.hat = exp(fit6$fitted)/(1+exp(fit6$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy) 
+index = which.max(accuracy)
+thr[index] 
+```
+
+
+
+ 
+```{r}
+fit7 = glm(type ~ inning + on_3b + on_2b + on_1b + outs + pitch_num, data = cv_pitcher)
+summary(fit7)
+
+p.hat = exp(fit7$fitted)/(1+exp(fit7$fitted))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy)
+index = which.max(accuracy)
+thr[index]
+```
+
+
+```{r}
+##GLMER Model 
+
+library(lme4)
+fit.glmer1 = glmer(type ~ stand + on_1b + on_2b + on_3b + outs +  b_score + b_count + s_count + pitch_num + (1|pitcher_id), data = cv_pitcher, family = binomial)
+
+summary(fit.glmer1)
+ranef(fit.glmer1)
+
+id = sort( unique( cv_pitcher$pitcher_id ) )
+b0.hat = as.numeric( unlist( ranef(fit.glmer1) ) )
+ranef.data = data.frame( id, b0.hat )
+ranef.data
+```
+
+```{r}
+
+length(b0.hat)
+count = table( sort(cv_pitcher$pitcher_id) )
+b = rep( b0.hat, count )
+
+rslt.glmer = summary(fit.glmer1)
+head(cv_pitcher)
+X = model.matrix(fit.glmer1)
+B = as.matrix( rslt.glmer$coef[,1], nrow=10 )
+FITTED = X %*% B + b
+
+attributes(rslt.glmer)
+p.hat = exp(FITTED)/(1+exp(FITTED))
+y.obs = cv_pitcher$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy) 
+index = which.max(accuracy)
+thr[index]  
+
+
+```
+
+
+
+```{r}
+## GLMER Interaction Model  (most complex model)
+
+expit = function(x) { exp(x) / ( 1 + exp(x) ) } ### expit function defined here
+cv_pitcher$same.side = ifelse(cv_pitcher$p_throws == cv_pitcher$stand, 0, 1)
+
+library(lme4)
+library(MuMIn)
+
+fit.glmer = glmer( type ~ stand + p_throws + on_1b * on_2b * on_3b + b_score + as.factor(b_count) * as.factor(s_count) + pitch_num * same.side + ( 1 | pitcher_id ), data=cv_pitcher, family=binomial )
+
+r.squaredGLMM(fit.glmer)
+ 
+b0.hat = as.numeric( unlist( ranef(fit.glmer) ) )
+id.unique = unique(cv_pitcher$pitcher_id)
+m = table(cv_pitcher$pitcher_id)
+b.vec = rep( b0.hat, m )
+
+head(cv_pitcher)
+
+     
+X = model.matrix(fit.glmer)
+B = matrix( summary(fit.glmer)$coef[,1], ncol=1 )
+head( expit( X %*% B + b.vec ) ) ### hand calculations
+
+head( fitted(fit.glmer) ) ### looks the same and it is the probability, not the linear predictor
+
+p.hat = fitted(fit.glmer)
+
+thr2 = seq( 0.01, 0.99, 0.01 )
+acc2 = rep( NA, length(thr) )
+y.obs = cv_pitcher$type
+
+for ( i in 1:length(thr) ) {
+    y.hat = ifelse( p.hat >= thr[i], 1, 0 )
+    acc2[i] = mean( y.obs == y.hat )
+    }
+
+plot( thr2, acc2, type="l" )
+thr[ which.max(acc2) ]
+
+ max(acc2) ### slightly better than the GLM
+## 0.5566815
+
+
+```
+
+## Final Testing against 2018 Data with most accurate models shown above
+
+```{r}
+test =  subset(temp1, ab_id >= 2018000000)
+test = na.omit(test)
+
+test$type = ifelse(test$type == "X" & test$zone < 10, 1, test$type)
+test$type = ifelse(test$type == "X" & test$zone > 10, 0, test$type)
+test$type = ifelse(test$type == "S" , 1, 0)
+
+```
+
+```{r}
+fit1 = glm(type ~ b_score + b_count + s_count + pitch_num, data = test)
+summary(fit1)
+
+p.hat = exp(fit1$fitted)/(1+exp(fit1$fitted))
+y.obs = test$type
+# length(p.hat)
+# length(y.obs)
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy)
+index = which.max(accuracy)
+thr[index] 
+```
+
+
+```{r}
+
+fit5 = glm(type ~ s_count + b_count + stand, data = test)
+summary(fit5)
+
+p.hat = exp(fit5$fitted)/(1+exp(fit5$fitted))
+y.obs = test$type
+
+thr = seq(0.01, 0.99, 0.01)
+accuracy = rep(NA, length(thr))
+
+for (i in 1: length(thr)) {
+  y.hat = ifelse(p.hat > thr[i], 1, 0)
+  accuracy[i] = mean(y.obs == y.hat)
+}
+
+max(accuracy) 
+index = which.max(accuracy)
+thr[index]
+```
+
+
